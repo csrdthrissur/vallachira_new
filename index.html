@@ -2606,8 +2606,16 @@ function loadFromLocalStorage() {
                 });
 
                 // Display properties in popup
-                if (feature.properties && feature.properties.name && feature.properties.id) {
-                    layer.bindPopup('Name: ' + feature.properties.name + '<br>ID: ' + feature.properties.id);
+                if (feature.properties) {
+                    let popupContent = `
+                        <strong>Name:</strong> ${feature.properties.name}<br>
+                        <strong>ID:</strong> ${feature.properties.id}<br>
+                        <strong>Category:</strong> ${feature.properties.category}<br>
+                        <strong>Type of Work:</strong> ${feature.properties.type_of_work}<br>
+                        <strong>Amount:</strong> ${feature.properties.amount}<br>
+                        <strong>Year:</strong> ${feature.properties.year}
+                    `;
+                    layer.bindPopup(popupContent);
                 }
             }
         }).addTo(map);
@@ -2663,14 +2671,35 @@ map.on(L.Draw.Event.CREATED, function (event) {
     var layer = event.layer;
     drawnItems.addLayer(layer);
 
-    // Prompt the user for attributes (name and id)
+    // Prompt the user for attributes (name, id, category, type of work, amount, and year)
     var name = prompt('Enter a name for this shape:');
     var id = prompt('Enter an ID for this shape:');
+    var category = prompt('Enter a category for this shape:');
+    var typeOfWork = prompt('Enter the type of work for this shape:');
+    var amount = prompt('Enter the amount for this shape:');
+    var year = prompt('Enter the year for this shape:');
 
     layer.feature = layer.feature || {};
     layer.feature.type = "Feature";
-    layer.feature.properties = { name: name, id: id };
-    layer.bindPopup('Name: ' + name + '<br>ID: ' + id);
+    layer.feature.properties = {
+        name: name,
+        id: id,
+        category: category,
+        type_of_work: typeOfWork,
+        amount: amount,
+        year: year
+    };
+
+    // Create a popup with all the properties
+    let popupContent = `
+        <strong>Name:</strong> ${name}<br>
+        <strong>ID:</strong> ${id}<br>
+        <strong>Category:</strong> ${category}<br>
+        <strong>Type of Work:</strong> ${typeOfWork}<br>
+        <strong>Amount:</strong> ${amount}<br>
+        <strong>Year:</strong> ${year}
+    `;
+    layer.bindPopup(popupContent);
 
     saveToLocalStorage();
 });
