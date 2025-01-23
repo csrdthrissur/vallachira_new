@@ -27,8 +27,8 @@
         }
 		#labelToggleButton {
             position: absolute;
-            top: 55%;
-            left: 1%;
+            top: 30%;
+            right: 21%;
             z-index: 1000;
             background-color: #fff;
             border: 4px solid #ccc;
@@ -2562,116 +2562,30 @@ binocularsIcon.parentNode.appendChild(textBox);
                 filterFunc();
             };
             div_road_stype.appendChild(reset_road_stype);
-			// Initialize the feature group to store editable layers
+		// Initialize the feature group to store editable layers
 var drawnItems = new L.FeatureGroup();
 map.addLayer(drawnItems);
 
-var currentLine = null; // Store the current polyline being drawn
-var isDrawingLine = false; // Track whether line drawing is active
-
 // Add the Leaflet Draw control to the map
 var drawControl = new L.Control.Draw({
-  position: 'bottomleft', // Set the initial position  
+    position: 'bottomleft',
     edit: {
-        featureGroup: drawnItems
+        featureGroup: drawnItems // Remove this if you don't want bulk editing
     },
     draw: {
-        polyline: true, // Enable polyline drawing
-        marker: true // Allow point markers
+        polyline: true,
+        polygon: true,
+        marker: true
     }
 });
 map.addControl(drawControl);
 
-function saveToLocalStorage() {
-    var savedData = drawnItems.toGeoJSON();
-    localStorage.setItem('drawnShapes', JSON.stringify(savedData));
-}
-
-// Function to load data from localStorage
-function loadFromLocalStorage() {
-    var savedData = JSON.parse(localStorage.getItem('drawnShapes'));
-    if (savedData) {
-        L.geoJSON(savedData, {
-            onEachFeature: function (feature, layer) {
-                drawnItems.addLayer(layer);
-
-                // Enable deletion on click
-                layer.on('click', function() {
-                    var deleteConfirmation = confirm('Do you want to delete this item?');
-                    if (deleteConfirmation) {
-                        drawnItems.removeLayer(layer);
-                        saveToLocalStorage();
-                        alert('Item deleted');
-                    }
-                });
-
-                // Display properties in popup
-                if (feature.properties) {
-                    let popupContent = `
-                        <strong>Name:</strong> ${feature.properties.name}<br>
-                        <strong>ID:</strong> ${feature.properties.id}<br>
-                        <strong>Category:</strong> ${feature.properties.category}<br>
-                        <strong>Type of Work:</strong> ${feature.properties.type_of_work}<br>
-                        <strong>Amount:</strong> ${feature.properties.amount}<br>
-                        <strong>Year:</strong> ${feature.properties.year}
-                    `;
-                    layer.bindPopup(popupContent);
-                }
-            }
-        }).addTo(map);
-    }
-}
-
-// Load saved shapes when the page loads
-loadFromLocalStorage();
-
-// Function to start a new line on mobile
-function startNewLine(latlng) {
-    currentLine = L.polyline([latlng], {
-        color: '#3388ff',
-        weight: 4
-    }).addTo(map);
-    drawnItems.addLayer(currentLine);
-    isDrawingLine = true;
-}
-
-// Function to add a point to the current line
-function addPointToCurrentLine(latlng) {
-    if (currentLine) {
-        currentLine.addLatLng(latlng);
-    }
-}
-
-// Function to finish the current line and save it
-function finishCurrentLine() {
-    if (currentLine) {
-        saveToLocalStorage();
-        currentLine = null;
-        isDrawingLine = false;
-        alert('Line saved.');
-    }
-}
-
-// Mobile tap event for adding points
-map.on('click', function (e) {
-    if (!isDrawingLine) {
-        startNewLine(e.latlng);
-    } else {
-        addPointToCurrentLine(e.latlng);
-    }
-});
-
-// Double-click or long press event to finish the line
-map.on('dblclick', function () {
-    finishCurrentLine();
-});
-
-// Event listener for when a point or line is created
+// Event listener for when a shape is created
 map.on(L.Draw.Event.CREATED, function (event) {
     var layer = event.layer;
     drawnItems.addLayer(layer);
 
-    // Prompt the user for attributes (name, id, category, type of work, amount, and year)
+    // Prompt for shape attributes
     var name = prompt('Enter a name for this shape:');
     var id = prompt('Enter an ID for this shape:');
     var category = prompt('Enter a category for this shape:');
@@ -2679,6 +2593,7 @@ map.on(L.Draw.Event.CREATED, function (event) {
     var amount = prompt('Enter the amount for this shape:');
     var year = prompt('Enter the year for this shape:');
 
+    // Attach properties to the feature
     layer.feature = layer.feature || {};
     layer.feature.type = "Feature";
     layer.feature.properties = {
@@ -2690,23 +2605,148 @@ map.on(L.Draw.Event.CREATED, function (event) {
         year: year
     };
 
-    // Create a popup with all the properties
-    let popupContent = `
-        <strong>Name:</strong> ${name}<br>
-        <strong>ID:</strong> ${id}<br>
-        <strong>Category:</strong> ${category}<br>
-        <strong>Type of Work:</strong> ${typeOfWork}<br>
-        <strong>Amount:</strong> ${amount}<br>
-        <strong>Year:</strong> ${year}
-    `;
-    layer.bindPopup(popupContent);
+    // Add an edit and delete button in the popup
+    layer.bindPopup(generatePopupContent(layer));
 
-    saveToLocalStorage();
+    saveToLocalStorage(); // Save the layer to localStorage
 });
 
-// Event listener for saving edits and deletions
-map.on(L.Draw.Event.EDITED, saveToLocalStorage);
-map.on(L.Draw.Event.DELETED, saveToLocalStorage);
+// Function to generate popup content
+function generatePopupContent(layer) {
+    var props = layer.feature.properties || {};
+    return `
+        <strong>Name:</strong> ${props.name || ''}<br>
+        <strong>ID:</strong> ${props.id || ''}<br>
+        <strong>Category:</strong> ${props.category || ''}<br>
+        <strong>Type of Work:</strong> ${props.type_of_work || ''}<br>
+        <strong>Amount:</strong> ${props.amount || ''}<br>
+        <strong>Year:</strong> ${props.year || ''}<br>
+        <button onclick="editLayer(${layer._leaflet_id})">Edit</button>
+        <button onclick="deleteLayer(${layer._leaflet_id})">Delete</button>
+    `;
+}
+
+// Function to edit a layer
+function editLayer(layerId) {
+    var layer = drawnItems.getLayer(layerId);
+    if (layer) {
+        layer.editing.enable();
+        alert('Editing enabled. Drag to modify and click "Save" when done.');
+        map.once('click', function () {
+            layer.editing.disable();
+            saveToLocalStorage();
+            alert('Editing saved.');
+        });
+    }
+}
+
+// Function to delete a layer
+function deleteLayer(layerId) {
+    var layer = drawnItems.getLayer(layerId);
+    if (layer) {
+        if (confirm('Are you sure you want to delete this layer?')) {
+            drawnItems.removeLayer(layer);
+            saveToLocalStorage();
+            alert('Layer deleted.');
+        }
+    }
+}
+
+// Function to save shapes to localStorage
+function saveToLocalStorage() {
+    var savedData = drawnItems.toGeoJSON();
+    localStorage.setItem('drawnShapes', JSON.stringify(savedData));
+}
+
+// Function to load shapes from localStorage
+function loadFromLocalStorage() {
+    var savedData = JSON.parse(localStorage.getItem('drawnShapes'));
+    if (savedData) {
+        L.geoJSON(savedData, {
+            onEachFeature: function (feature, layer) {
+                drawnItems.addLayer(layer);
+
+                // Add popup with edit and delete buttons
+                layer.bindPopup(generatePopupContent(layer));
+            }
+        }).addTo(map);
+    }
+}
+
+// Load saved shapes when the page loads
+loadFromLocalStorage();
+
+// Export Functionality
+function exportData() {
+    var savedData = drawnItems.toGeoJSON();
+    var blob = new Blob([JSON.stringify(savedData)], { type: 'application/json' });
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'map_data.geojson';
+    link.click();
+}
+
+// Import Functionality
+function importData(event) {
+    var file = event.target.files[0];
+    var reader = new FileReader();
+    reader.onload = function (e) {
+        var geojsonData = JSON.parse(e.target.result);
+        L.geoJSON(geojsonData, {
+            onEachFeature: function (feature, layer) {
+                drawnItems.addLayer(layer);
+
+                // Add popup with edit and delete buttons
+                layer.bindPopup(generatePopupContent(layer));
+            }
+        }).addTo(map);
+    };
+    reader.readAsText(file);
+}
+
+// Export Button
+var exportButton = L.control({ position: 'topright' });
+exportButton.onAdd = function () {
+    var div = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+    div.innerHTML = '<a href="#" title="Export Data" style="padding: 4px; background: white; border: 1px solid #ccc; color: white; text-align: center; display: block;">📤 Export</a>';
+    div.style.cursor = 'pointer';
+    div.style.background = '#007bff';
+    div.style.color = 'white';
+    div.style.textAlign = 'center';
+    div.onclick = exportData;
+    return div;
+};
+exportButton.addTo(map);
+
+// Import Button
+var importButton = L.control({ position: 'topright' });
+importButton.onAdd = function () {
+    var div = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+    div.innerHTML = '<a href="#" title="Import Data" style="padding: 4px; background: white; border: 1px solid #ccc; color: white; text-align: center; display: block;">📥 Import</a>';
+    div.style.cursor = 'pointer';
+    div.style.background = '#28a745';
+    div.style.color = 'white';
+    div.style.textAlign = 'center';
+    div.style.marginTop = '14px';
+
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.geojson';
+    input.style.opacity = '0';
+    input.style.width = '0';
+    input.style.height = '0';
+    input.style.position = 'absolute';
+    input.onchange = importData;
+
+    div.onclick = (e) => {
+        e.stopPropagation();
+        input.click();
+    };
+
+    div.appendChild(input);
+    return div;
+};
+importButton.addTo(map);
         </script>
     </body>
 </html>
